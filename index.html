@@ -18,7 +18,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:14p
 @media(max-width:820px){main{grid-template-columns:1fr}}
 .card{background:var(--bg2);border:1px solid #222244;border-radius:10px;padding:12px}
 canvas{width:100%;display:block;background:var(--bg);border-radius:8px}
-.sq{aspect-ratio:1/1;max-height:680px;margin:auto}.px{image-rendering:pixelated}
+.sq{aspect-ratio:1/1;width:min(100%,680px);margin:auto}.px{image-rendering:pixelated}
 .wide{aspect-ratio:16/8}
 .plots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 @media(max-width:820px){.plots{grid-template-columns:1fr}}
@@ -217,10 +217,10 @@ function run(){
   lines($("en"),E,["#ff9f43","#5cff9d","#00d4ff"],["T","V","H"]);
   const all=ph1.concat(ph2).map(p=>p[1]);
   scatter($("ph"),[ph1,ph2],["#00d4ff","#ff4488"],[-Math.PI,Math.PI],[Math.min(...all),Math.max(...all)||1]);
-  let R=0;[A,B].forEach(S=>S&&S.forEach((y,i)=>{if(i%20===0)M.pos(y).forEach(p=>R=Math.max(R,Math.hypot(p[0],p[1])));}));R=(R||2)*1.1;
-  const c=$("anim"),x=fit(c),W=c.width,sc=W/2/R,cx=W/2,px=p=>[cx+p[0]*sc,cx-p[1]*sc],t0=performance.now();
+  let R=0;[A,B].forEach(S=>S&&S.forEach((y,i)=>{if(i%20===0)M.pos(y).forEach(p=>R=Math.max(R,Math.hypot(p[0],p[1])));}));R=(R||2)*1.15+.1;
+  const c=$("anim"),x=fit(c),W=c.width,Hc=c.height,sc=Math.min(W,Hc)/2/R,cx=W/2,cy=Hc/2,px=p=>[cx+p[0]*sc,cy-p[1]*sc],t0=performance.now();
   function draw(now){
-    const idx=Math.max(0,Math.min(n-1,Math.floor((now-t0)/1000*num("speed")/h)));x.clearRect(0,0,W,W);
+    const idx=Math.max(0,Math.min(n-1,Math.floor((now-t0)/1000*num("speed")/h)));x.clearRect(0,0,W,Hc);
     [[A,"#00d4ff","#ff4488"],[B,"#ffd166","#ff9f43"]].forEach(([S,c1,c2])=>{if(!S||idx>=S.length)return;
       x.beginPath();x.strokeStyle=c2;x.globalAlpha=.6;x.lineWidth=1;let first=true;
       for(let i=Math.max(0,idx-2500);i<=idx;i+=2){const q=px(M.pos(S[i])[1]);first?x.moveTo(...q):x.lineTo(...q);first=false;}
@@ -326,6 +326,14 @@ function show(i){tabs.forEach((t,k)=>{t.classList.toggle("hide",k!==i);$("tabs")
   C.on=false;if(i===3)chaosInit(true);if(i===0)run();}
 $("go").onclick=run;$("pGo").onclick=()=>setTimeout(poincare,20);$("lGo").onclick=lyapMap;$("vGo").onclick=()=>setTimeout(lyapDiv,20);
 $("cGo").onclick=()=>chaosInit(true);$("cP").onclick=()=>C.pause=!C.pause;$("cM").onchange=()=>chaosInit(true);
+$("model").onchange=()=>{const el=$("model").value==="el";$("elf").classList.toggle("hide",!el);$("meth").disabled=el;
+  if(el){$("meth").value="rk4";$("lN").value=30;$("lT").value=5;$("lD").value=.005;$("cN").value=64;$("cD").value=.002;$("h").value=.002;}
+  else{$("lN").value=60;$("lT").value=15;$("lD").value=.05;$("cN").value=100;$("cD").value=.01;}};
+show(0);
+</script>
+</body>
+</html>
+
 $("model").onchange=()=>{const el=$("model").value==="el";$("elf").classList.toggle("hide",!el);$("meth").disabled=el;
   if(el){$("meth").value="rk4";$("lN").value=30;$("lT").value=5;$("lD").value=.005;$("cN").value=64;$("cD").value=.002;$("h").value=.002;}
   else{$("lN").value=60;$("lT").value=15;$("lD").value=.05;$("cN").value=100;$("cD").value=.01;}};
