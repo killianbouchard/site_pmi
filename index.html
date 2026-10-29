@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Double pendule – simulation interactive</title>
 <style>
-:root{--bg:#0d0d1a;--bg2:#13132b;--fg:#e0e0ff;--mut:#7777aa;--c1:#00d4ff;--c2:#ff4488;--ok:#00c853}
+:root{--bg:#0d0d1a;--bg2:#13132b;--card:#13132b;--canvas:#0d0d1a;--fg:#e0e0ff;--mut:#7777aa;--line:#222244;--c1:#00d4ff;--c2:#ff4488;--ok:#00c853;
+ --a1:#00d4ff;--a2:#ff9f43;--a3:#5cff9d;--a4:#ffd166;--a5:#b794f6;--a6:#ff4488;--mass:#ffffff;--rod:#00d4ff;--trace:#ff4488;--rod2:#ffd166;--trace2:#ff9f43}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
 header{padding:16px 20px 4px;text-align:center}
@@ -24,17 +25,25 @@ canvas{width:100%;display:block;background:var(--bg);border-radius:8px}
 @media(max-width:820px){.plots{grid-template-columns:1fr}}
 .plots canvas{aspect-ratio:16/10}
 fieldset{border:1px solid #222244;border-radius:8px;margin:0 0 10px;padding:6px 10px}
-legend{color:var(--c1);font:700 12px "Courier New",monospace;padding:0 6px}
+legend{color:var(--c1);font:700 12px "Courier New",monospace;padding:0 6px;text-transform:uppercase}
 label{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--mut);font-size:13px;margin:3px 0}
 input,select{background:#1e1e3a;color:var(--fg);border:1px solid #2a2a4a;border-radius:5px;padding:3px 6px;width:120px;font:inherit}
+#model,#meth{width:150px}
 input[type=checkbox]{width:auto}input[type=range]{width:120px;padding:0}
 button{width:100%;background:var(--ok);color:#000;border:0;border-radius:6px;padding:9px;font:700 14px "Courier New",monospace;cursor:pointer}
 button:hover{filter:brightness(1.15)}
+button.sec{background:var(--ok)}
 h2{margin:0 0 6px;font-size:13px;color:var(--c2);font-family:"Courier New",monospace}
+h3{margin:0 0 4px;font:700 16px "Courier New",monospace;color:var(--c1)}
 .bar{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:end;margin-bottom:10px}
 .bar label{flex-direction:column;align-items:flex-start;margin:0}.bar button{width:auto;padding:8px 16px}
-.info{font:12px "Courier New",monospace;color:var(--mut);margin-top:8px;min-height:36px;white-space:pre-wrap}
+.info{font:12px "Courier New",monospace;color:var(--mut);margin-top:10px;min-height:36px;white-space:pre-wrap}
 .hide{display:none}
+.pdf{display:flex;flex-direction:column;gap:12px}.pdf p{margin:0;color:var(--mut)}
+.pdf a.btn{display:inline-block;width:auto;align-self:flex-start;background:var(--ok);color:#000;text-decoration:none;border-radius:6px;padding:10px 20px;font:700 14px "Courier New",monospace}
+.pdf a.btn:hover{filter:brightness(1.15)}
+.pdf iframe{width:100%;height:78vh;min-height:480px;border:1px solid #222244;border-radius:8px;background:#fff}
+.note{background:var(--bg);border:1px solid #222244;border-radius:8px;padding:10px 14px;font-size:13px}
 footer{text-align:center;color:var(--mut);font-size:12px;padding:10px 0 24px}
 </style>
 </head>
@@ -87,31 +96,37 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:10px 0 24px}
    <button id="vGo">Calculer</button></div>
    <canvas id="vc" class="wide"></canvas><div class="info" id="vi">Convergence de λ(t) pour des angles initiaux de 5°, 20°, 45°, 90°, 135° et 170° (module « Bonus » lyapunov_div.py).</div></div>
  </div>
+<div class="tab hide" data-t="Étude théorique">
+  <div class="card pdf"><div><h3>Étude théorique</h3><p>Modélisation hamiltonienne du double pendule, schémas d’intégration et analyse du chaos (document LaTeX).</p></div>
+   <a class="btn" id="pdfDl" href="etude_theorique.pdf" download="etude_theorique.pdf">Télécharger le PDF</a>
+   <div class="note hide" id="pdfMiss">Le fichier <b>etude_theorique.pdf</b> n’est pas encore présent : déposez-le à côté de <b>index.html</b> dans le dépôt, puis recommitez.</div>
+   <iframe id="pdfView" title="Étude théorique" src="about:blank"></iframe></div>
+ </div>
 </section>
 <aside class="card" style="align-self:start">
-<fieldset><legend>MODÈLE</legend>
+<fieldset><legend>Modèle</legend>
 <label>Système<select id="model"><option value="rig">Double pendule</option><option value="el">Double pendule élastique</option></select></label></fieldset>
-<fieldset><legend>MASSES / LONGUEURS (à vide)</legend>
+<fieldset><legend>Masses / longueurs (à vide)</legend>
 <label>m1 (kg)<input id="m1" type="number" value="1" step="0.1" min="0.1"></label>
 <label>m2 (kg)<input id="m2" type="number" value="1" step="0.1" min="0.1"></label>
 <label>l1 (m)<input id="l1" type="number" value="1" step="0.1" min="0.1"></label>
 <label>l2 (m)<input id="l2" type="number" value="1" step="0.1" min="0.1"></label></fieldset>
-<fieldset><legend>CONDITIONS INITIALES</legend>
+<fieldset><legend>Conditions initiales</legend>
 <label>φ1 (deg)<input id="phi1" type="number" value="115" step="5"></label>
 <label>φ2 (deg)<input id="phi2" type="number" value="-57" step="5"></label>
 <label>p1<input id="p1" type="number" value="0" step="0.5"></label>
 <label>p2<input id="p2" type="number" value="0" step="0.5"></label></fieldset>
-<fieldset id="elf" class="hide"><legend>ÉLASTIQUE</legend>
+<fieldset id="elf" class="hide"><legend>Élastique</legend>
 <label>k1 (N/m)<input id="k1" type="number" value="200" step="10" min="20"></label>
 <label>k2 (N/m)<input id="k2" type="number" value="200" step="10" min="20"></label>
 <label>p_l1<input id="pl1" type="number" value="0" step="0.5"></label>
 <label>p_l2<input id="pl2" type="number" value="1" step="0.5"></label></fieldset>
-<fieldset><legend>NUMÉRIQUE (simulation)</legend>
+<fieldset><legend>Numérique (simulation)</legend>
 <label>Méthode<select id="meth"><option value="rk4">RK4</option><option value="euler">Euler explicite</option><option value="sympl">Euler symplectique</option><option value="verlet">Verlet symplectique</option></select></label>
 <label>Pas h (s)<input id="h" type="number" value="0.002" step="0.0005" min="0.0005" max="0.02"></label>
 <label>Durée T (s)<input id="T" type="number" value="30" step="5" min="5" max="120"></label>
 <label>Vitesse<input id="speed" type="range" min="0.2" max="3" step="0.1" value="1"></label></fieldset>
-<fieldset><legend>2ᵉ PENDULE (sensibilité)</legend>
+<fieldset><legend>2ᵉ pendule (sensibilité)</legend>
 <label>Activer<input id="two" type="checkbox"></label>
 <label>écart φ1 (rad)<input id="eps" type="number" value="0.001" step="0.001"></label></fieldset>
 <button id="go">▶ LANCER LA SIMULATION</button>
@@ -179,23 +194,23 @@ function getModel(){
 function simulate(M,y0,h,N,meth){const f=M.step(meth),out=[];let y=y0.slice();
   for(let i=0;i<N;i++){out.push(y);y=f(y,h);if(!y.every(isFinite))break;}return out;}
 // ===== OUTILS DE DESSIN
-const dpr=()=>devicePixelRatio||1;
+const dpr=()=>devicePixelRatio||1,css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function fit(c){const r=c.getBoundingClientRect();c.width=Math.max(1,r.width*dpr());c.height=Math.max(1,r.height*dpr());return c.getContext("2d");}
-function frame(c,x){const m=34*dpr();x.strokeStyle="#222244";x.strokeRect(m,m/2,c.width-m*1.5,c.height-m*1.5);return m;}
+function frame(c,x){const m=34*dpr();x.strokeStyle=css("--line");x.strokeRect(m,m/2,c.width-m*1.5,c.height-m*1.5);return m;}
 function lines(c,series,colors,labels,xl,xh){
   const x=fit(c),m=frame(c,x),W=c.width,H=c.height;let lo=Infinity,hi=-Infinity;
   series.forEach(s=>s.forEach(([,v])=>{if(isFinite(v)){lo=Math.min(lo,v);hi=Math.max(hi,v);}}));
   if(hi===lo){hi+=1;lo-=1;}if(xl===undefined){xl=Infinity;xh=-Infinity;series.forEach(s=>s.forEach(([a])=>{xl=Math.min(xl,a);xh=Math.max(xh,a);}));}
   series.forEach((s,k)=>{x.beginPath();x.strokeStyle=colors[k];x.lineWidth=1.2;let st=false;
     s.forEach(([a,v])=>{if(!isFinite(v))return;const px=m+(a-xl)/(xh-xl||1)*(W-m*1.5),py=m/2+(1-(v-lo)/(hi-lo))*(H-m*1.5);st?x.lineTo(px,py):x.moveTo(px,py);st=true;});x.stroke();});
-  x.font=`${11*dpr()}px monospace`;x.fillStyle="#7777aa";x.fillText(hi.toPrecision(3),2,m/2+8);x.fillText(lo.toPrecision(3),2,H-m);
+  x.font=`${11*dpr()}px monospace`;x.fillStyle=css("--mut");x.fillText(hi.toPrecision(3),2,m/2+8);x.fillText(lo.toPrecision(3),2,H-m);
   let ox=m+8;labels.forEach((t,k)=>{x.fillStyle=colors[k];x.fillText(t,ox,H-8);ox+=x.measureText(t).width+18*dpr();});
 }
 function scatter(c,sets,colors,xr,yr,sz=1.5){
   const x=fit(c),m=frame(c,x),W=c.width-m*1.5,H=c.height-m*1.5;
   sets.forEach((pts,k)=>{x.fillStyle=colors[k];pts.forEach(([a,b])=>{
     x.fillRect(m+(a-xr[0])/(xr[1]-xr[0])*W,m/2+(1-(b-yr[0])/(yr[1]-yr[0]))*H,sz*dpr(),sz*dpr());});});
-  x.font=`${11*dpr()}px monospace`;x.fillStyle="#7777aa";
+  x.font=`${11*dpr()}px monospace`;x.fillStyle=css("--mut");
   x.fillText(`x∈[${xr[0].toPrecision(3)}, ${xr[1].toPrecision(3)}]  y∈[${yr[0].toPrecision(3)}, ${yr[1].toPrecision(3)}]`,m,c.height-8);
 }
 function hsv(h,s,v){const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
@@ -214,19 +229,19 @@ function run(){
   for(let i=0;i<n;i+=stride){const e=M.en(A[i]);if(H0===null)H0=e[2];
     [0,1,2].forEach(k=>E[k].push([i*h,e[k]]));err=Math.max(err,Math.abs((e[2]-H0)/(H0||1)));
     const [a,b]=M.phase(A[i]);ph1.push([wrap(a[0]),a[1]]);ph2.push([wrap(b[0]),b[1]]);}
-  lines($("en"),E,["#ff9f43","#5cff9d","#00d4ff"],["T","V","H"]);
+  lines($("en"),E,[css("--a2"),css("--a3"),css("--a1")],["T","V","H"]);
   const all=ph1.concat(ph2).map(p=>p[1]);
-  scatter($("ph"),[ph1,ph2],["#00d4ff","#ff4488"],[-Math.PI,Math.PI],[Math.min(...all),Math.max(...all)||1]);
+  scatter($("ph"),[ph1,ph2],[css("--a1"),css("--a2")],[-Math.PI,Math.PI],[Math.min(...all),Math.max(...all)||1]);
   let R=0;[A,B].forEach(S=>S&&S.forEach((y,i)=>{if(i%20===0)M.pos(y).forEach(p=>R=Math.max(R,Math.hypot(p[0],p[1])));}));R=(R||2)*1.15+.1;
   const c=$("anim"),x=fit(c),W=c.width,Hc=c.height,sc=Math.min(W,Hc)/2/R,cx=W/2,cy=Hc/2,px=p=>[cx+p[0]*sc,cy-p[1]*sc],t0=performance.now();
   function draw(now){
     const idx=Math.max(0,Math.min(n-1,Math.floor((now-t0)/1000*num("speed")/h)));x.clearRect(0,0,W,Hc);
-    [[A,"#00d4ff","#ff4488"],[B,"#ffd166","#ff9f43"]].forEach(([S,c1,c2])=>{if(!S||idx>=S.length)return;
+    [[A,css("--rod"),css("--trace")],[B,css("--rod2"),css("--trace2")]].forEach(([S,c1,c2])=>{if(!S||idx>=S.length)return;
       x.beginPath();x.strokeStyle=c2;x.globalAlpha=.6;x.lineWidth=1;let first=true;
       for(let i=Math.max(0,idx-2500);i<=idx;i+=2){const q=px(M.pos(S[i])[1]);first?x.moveTo(...q):x.lineTo(...q);first=false;}
       x.stroke();x.globalAlpha=1;const [a,b]=M.pos(S[idx]),o=px([0,0]),pa=px(a),pb=px(b);
       x.strokeStyle=c1;x.lineWidth=3;x.beginPath();x.moveTo(...o);x.lineTo(...pa);x.lineTo(...pb);x.stroke();
-      x.fillStyle="#fff";[pa,pb].forEach(p=>{x.beginPath();x.arc(p[0],p[1],7,0,7);x.fill();});});
+      x.fillStyle=css("--mass");[pa,pb].forEach(p=>{x.beginPath();x.arc(p[0],p[1],7,0,7);x.fill();});});
     let msg=`t = ${(idx*h).toFixed(2)} s · erreur relative max sur H : ${err.toExponential(2)}`;
     if(n<N)msg+=` · ⚠ divergence numérique à t = ${(n*h).toFixed(2)} s`;
     if(B&&idx<B.length){const a=M.pos(A[idx])[1],b=M.pos(B[idx])[1];msg+=` · distance : ${Math.hypot(a[0]-b[0],a[1]-b[1]).toFixed(3)} m`;}
@@ -247,7 +262,7 @@ function poincare(){
     o0=o1;}
   const rg=(k,v)=>k<2?[-Math.PI,Math.PI]:[Math.min(...v)-.1,Math.max(...v)+.1];
   const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-  scatter($("pc"),[pts],["#00d4ff"],pts.length?rg(ix,xs):[-1,1],pts.length?rg(iy,ys):[-1,1],1.6);
+  scatter($("pc"),[pts],[css("--a1")],pts.length?rg(ix,xs):[-1,1],pts.length?rg(iy,ys):[-1,1],1.6);
   $("pi").textContent=pts.length?`${pts.length} points de section sur ${Np} itérations (h = ${h}).`:"Aucun passage : essayez une autre valeur de section ou plus d’énergie.";
 }
 // ===== ONGLET CARTE DE LYAPUNOV (chaos/carte_lyaponov.py)
@@ -310,7 +325,7 @@ function chaosLoop(){
 function lyapDiv(){
   const P={m1:num("m1"),m2:num("m2"),l1:num("l1"),l2:num("l2")},T=num("vT"),dt=num("vD");
   const eq=s=>derivL([s[0],s[2],s[1],s[3]],P),f=s=>{const r=eq(s);return [r[0],r[2],r[1],r[3]];}; // s=[θ1,θ2,ω1,ω2]
-  const col=["#00d4ff","#ff4488","#5cff9d","#ffd166","#b794f6","#ff9f43"],series=[],labels=[];let txt="Angle (°) | λ (s⁻¹)    | Temps de Lyapunov | État\n"+"-".repeat(58)+"\n";
+  const col=["--a1","--a2","--a3","--a4","--a5","--a6"].map(css),series=[],labels=[];let txt="Angle (°) | λ (s⁻¹)    | Temps de Lyapunov | État\n"+"-".repeat(58)+"\n";
   [5,20,45,90,135,170].forEach(deg=>{let x=[deg*Math.PI/180,0,0,0],xp=[x[0]+1e-8,0,0,0],sum=0;const hist=[],n=Math.floor(T/dt);
     for(let i=1;i<n;i++){const xn=rk4(f,x,dt),xpn=rk4(f,xp,dt),diff=xpn.map((v,k)=>v-xn[k]),d1=Math.hypot(...diff);
       sum+=Math.log(d1/1e-8);hist.push([i*dt,sum/(i*dt)]);x=xn;xp=xn.map((v,k)=>v+diff[k]/d1*1e-8);}
@@ -323,12 +338,16 @@ function lyapDiv(){
 const tabs=[...document.querySelectorAll(".tab")];
 tabs.forEach((t,i)=>{const b=document.createElement("button");b.textContent=t.dataset.t;b.onclick=()=>show(i);$("tabs").append(b);});
 function show(i){tabs.forEach((t,k)=>{t.classList.toggle("hide",k!==i);$("tabs").children[k].classList.toggle("on",k===i);});
-  C.on=false;if(i===3)chaosInit(true);if(i===0)run();}
+  C.on=false;if(i===3)chaosInit(true);if(i===0)run();if(i===5)pdfInit();}
 $("go").onclick=run;$("pGo").onclick=()=>setTimeout(poincare,20);$("lGo").onclick=lyapMap;$("vGo").onclick=()=>setTimeout(lyapDiv,20);
 $("cGo").onclick=()=>chaosInit(true);$("cP").onclick=()=>C.pause=!C.pause;$("cM").onchange=()=>chaosInit(true);
 $("model").onchange=()=>{const el=$("model").value==="el";$("elf").classList.toggle("hide",!el);$("meth").disabled=el;
   if(el){$("meth").value="rk4";$("lN").value=30;$("lT").value=5;$("lD").value=.005;$("cN").value=64;$("cD").value=.002;$("h").value=.002;}
   else{$("lN").value=60;$("lT").value=15;$("lD").value=.05;$("cN").value=100;$("cD").value=.01;}};
+function pdfInit(){const f=$("pdfView");if(f.dataset.ok)return;f.dataset.ok=1;
+  if(!/^https?:/.test(location.protocol)){f.src="etude_theorique.pdf";return;}
+  fetch("etude_theorique.pdf",{method:"HEAD"}).then(r=>{if(r.ok)f.src="etude_theorique.pdf#view=FitH";else throw 0;})
+   .catch(()=>{f.classList.add("hide");$("pdfMiss").classList.remove("hide");$("pdfDl").classList.add("hide");});}
 show(0);
 </script>
 </body>
