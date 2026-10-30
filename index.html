@@ -23,7 +23,7 @@ canvas{width:100%;display:block;background:var(--bg);border-radius:8px}
 .wide{aspect-ratio:16/8}
 .plots{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
 @media(max-width:820px){.plots{grid-template-columns:1fr}}
-.plots canvas{aspect-ratio:16/10}
+.plots canvas{aspect-ratio:16/11}.plots .full{grid-column:1/-1}.plots canvas.e{aspect-ratio:16/6}
 fieldset{border:1px solid #222244;border-radius:8px;margin:0 0 10px;padding:6px 10px}
 legend{color:var(--c1);font:700 12px "Courier New",monospace;padding:0 6px;text-transform:uppercase}
 label{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--mut);font-size:13px;margin:3px 0}
@@ -58,8 +58,10 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:10px 0 24px}
  <div class="tab" data-t="Simulation">
   <div class="card"><canvas id="anim" class="sq"></canvas><div class="info" id="info"></div></div>
   <div class="plots">
-   <div class="card"><h2>ÉNERGIES (T, V, H)</h2><canvas id="en"></canvas></div>
-   <div class="card"><h2>PORTRAITS DE PHASE (φ repliés, p)</h2><canvas id="ph"></canvas></div>
+   <div class="card full"><h2>ÉNERGIES (T, V, H)</h2><canvas id="en" class="e"></canvas></div>
+   <div class="card full hide" id="dcard"><h2>ÉCART ENTRE LES DEUX PENDULES · distance d(t) entre les masses m2 (échelle logarithmique)</h2><canvas id="dist" class="e"></canvas></div>
+   <div class="card"><h2>PORTRAIT DE PHASE · PENDULE 1 (φ1 replié, p1)</h2><canvas id="ph"></canvas></div>
+   <div class="card"><h2>PORTRAIT DE PHASE · PENDULE 2 (φ2 replié, p2)</h2><canvas id="ph2"></canvas></div>
   </div>
  </div>
  <div class="tab hide" data-t="Poincaré">
@@ -114,13 +116,13 @@ footer{text-align:center;color:var(--mut);font-size:12px;padding:10px 0 24px}
 <fieldset><legend>Conditions initiales</legend>
 <label>φ1 (deg)<input id="phi1" type="number" value="115" step="5"></label>
 <label>φ2 (deg)<input id="phi2" type="number" value="-57" step="5"></label>
-<label>p1<input id="p1" type="number" value="0" step="0.5"></label>
-<label>p2<input id="p2" type="number" value="0" step="0.5"></label></fieldset>
+<label>p1 (kg·m²/s)<input id="p1" type="number" value="0" step="0.5"></label>
+<label>p2 (kg·m²/s)<input id="p2" type="number" value="0" step="0.5"></label></fieldset>
 <fieldset id="elf" class="hide"><legend>Élastique</legend>
 <label>k1 (N/m)<input id="k1" type="number" value="200" step="10" min="20"></label>
 <label>k2 (N/m)<input id="k2" type="number" value="200" step="10" min="20"></label>
-<label>p_l1<input id="pl1" type="number" value="0" step="0.5"></label>
-<label>p_l2<input id="pl2" type="number" value="1" step="0.5"></label></fieldset>
+<label>p_l1 (kg·m/s)<input id="pl1" type="number" value="0" step="0.5"></label>
+<label>p_l2 (kg·m/s)<input id="pl2" type="number" value="1" step="0.5"></label></fieldset>
 <fieldset><legend>Numérique (simulation)</legend>
 <label>Méthode<select id="meth"><option value="rk4">RK4</option><option value="euler">Euler explicite</option><option value="sympl">Euler symplectique</option><option value="verlet">Verlet symplectique</option></select></label>
 <label>Pas h (s)<input id="h" type="number" value="0.002" step="0.0005" min="0.0005" max="0.02"></label>
@@ -196,22 +198,42 @@ function simulate(M,y0,h,N,meth){const f=M.step(meth),out=[];let y=y0.slice();
 // ===== OUTILS DE DESSIN
 const dpr=()=>devicePixelRatio||1,css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function fit(c){const r=c.getBoundingClientRect();c.width=Math.max(1,r.width*dpr());c.height=Math.max(1,r.height*dpr());return c.getContext("2d");}
-function frame(c,x){const m=34*dpr();x.strokeStyle=css("--line");x.strokeRect(m,m/2,c.width-m*1.5,c.height-m*1.5);return m;}
-function lines(c,series,colors,labels,xl,xh){
-  const x=fit(c),m=frame(c,x),W=c.width,H=c.height;let lo=Infinity,hi=-Infinity;
-  series.forEach(s=>s.forEach(([,v])=>{if(isFinite(v)){lo=Math.min(lo,v);hi=Math.max(hi,v);}}));
-  if(hi===lo){hi+=1;lo-=1;}if(xl===undefined){xl=Infinity;xh=-Infinity;series.forEach(s=>s.forEach(([a])=>{xl=Math.min(xl,a);xh=Math.max(xh,a);}));}
-  series.forEach((s,k)=>{x.beginPath();x.strokeStyle=colors[k];x.lineWidth=1.2;let st=false;
-    s.forEach(([a,v])=>{if(!isFinite(v))return;const px=m+(a-xl)/(xh-xl||1)*(W-m*1.5),py=m/2+(1-(v-lo)/(hi-lo))*(H-m*1.5);st?x.lineTo(px,py):x.moveTo(px,py);st=true;});x.stroke();});
-  x.font=`${11*dpr()}px monospace`;x.fillStyle=css("--mut");x.fillText(hi.toPrecision(3),2,m/2+8);x.fillText(lo.toPrecision(3),2,H-m);
-  let ox=m+8;labels.forEach((t,k)=>{x.fillStyle=colors[k];x.fillText(t,ox,H-8);ox+=x.measureText(t).width+18*dpr();});
+function nice(r,n){const raw=r/n,p=Math.pow(10,Math.floor(Math.log10(raw))),f=raw/p;return (f<1.5?1:f<3?2:f<7?5:10)*p;}
+function ticks(lo,hi,n){const st=nice((hi-lo)||1,n),out=[];for(let v=Math.ceil(lo/st-1e-9)*st;v<=hi+st*1e-9;v+=st)out.push(Math.abs(v)<st*1e-9?0:v);return {out,st};}
+const fmt=(v,st)=>(st<1e-3||Math.abs(v)>=1e5)?v.toExponential(1):v.toFixed(Math.min(6,Math.max(0,-Math.floor(Math.log10(st)+1e-9))));
+function range(vals,pad=.08){let lo=Infinity,hi=-Infinity;for(const v of vals)if(isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}
+  if(!isFinite(lo)){lo=-1;hi=1;}if(hi-lo<1e-12){const e=Math.abs(hi)*.1||1;lo-=e;hi+=e;}const p=(hi-lo)*pad;return [lo-p,hi+p];}
+// Cadre + grille + graduations adaptés aux plages xr, yr (ctx x, géométrie G)
+function geom(c,l=58,b=42){const d=dpr();return {l:l*d,t:12*d,r:14*d,b:b*d,W:c.width,H:c.height};}
+const sup=k=>String(k).replace(/[-0-9]/g,c=>"⁻⁰¹²³⁴⁵⁶⁷⁸⁹"[c==="-"?0:+c+1]);
+function axes(x,G,xr,yr,xlab,ylab,o={}){
+  const d=dpr(),w=G.W-G.l-G.r,h=G.H-G.t-G.b,X=v=>G.l+(v-xr[0])/(xr[1]-xr[0])*w,Y=v=>G.t+(1-(v-yr[0])/(yr[1]-yr[0]))*h;
+  const tx=ticks(xr[0],xr[1],Math.max(3,Math.round(w/(85*d)))),ty=o.ylog?(()=>{const st=Math.max(1,Math.ceil((yr[1]-yr[0])/7)),out=[];for(let v=Math.ceil(yr[0]);v<=yr[1];v+=st)out.push(v);return {out,st};})():ticks(yr[0],yr[1],Math.max(3,Math.round(h/(55*d))));
+  x.font=`${11*d}px ui-monospace,Menlo,Consolas,monospace`;x.lineWidth=1;
+  tx.out.forEach(v=>{const px=X(v);x.strokeStyle=css("--line");x.beginPath();x.moveTo(px,G.t);x.lineTo(px,G.t+h);x.stroke();
+    x.strokeStyle=css("--mut");x.beginPath();x.moveTo(px,G.t+h);x.lineTo(px,G.t+h+4*d);x.stroke();
+    x.fillStyle=css("--mut");x.textAlign="center";x.textBaseline="top";x.fillText(fmt(v,tx.st),px,G.t+h+6*d);});
+  ty.out.forEach(v=>{const py=Y(v);x.strokeStyle=css("--line");x.beginPath();x.moveTo(G.l,py);x.lineTo(G.l+w,py);x.stroke();
+    x.strokeStyle=css("--mut");x.beginPath();x.moveTo(G.l-4*d,py);x.lineTo(G.l,py);x.stroke();
+    x.fillStyle=css("--mut");x.textAlign="right";x.textBaseline="middle";x.fillText(o.ylog?"10"+sup(v):fmt(v,ty.st),G.l-7*d,py);});
+  x.strokeStyle=css("--mut");x.strokeRect(G.l,G.t,w,h);
+  x.fillStyle=css("--fg");x.textAlign="center";x.textBaseline="bottom";if(xlab)x.fillText(xlab,G.l+w/2,G.H-2*d);
+  if(ylab){x.save();x.translate(3*d,G.t+h/2);x.rotate(-Math.PI/2);x.textBaseline="top";x.fillText(ylab,0,0);x.restore();}
+  x.textAlign="left";x.textBaseline="alphabetic";
+  return {X,Y,w,h,clip(){x.save();x.beginPath();x.rect(G.l,G.t,w,h);x.clip();}};
 }
-function scatter(c,sets,colors,xr,yr,sz=1.5){
-  const x=fit(c),m=frame(c,x),W=c.width-m*1.5,H=c.height-m*1.5;
-  sets.forEach((pts,k)=>{x.fillStyle=colors[k];pts.forEach(([a,b])=>{
-    x.fillRect(m+(a-xr[0])/(xr[1]-xr[0])*W,m/2+(1-(b-yr[0])/(yr[1]-yr[0]))*H,sz*dpr(),sz*dpr());});});
-  x.font=`${11*dpr()}px monospace`;x.fillStyle=css("--mut");
-  x.fillText(`x∈[${xr[0].toPrecision(3)}, ${xr[1].toPrecision(3)}]  y∈[${yr[0].toPrecision(3)}, ${yr[1].toPrecision(3)}]`,m,c.height-8);
+function lines(c,series,colors,labels,xlab,ylab,o={}){
+  if(o.ylog)series=series.map(s=>s.map(([a,v])=>[a,Math.log10(Math.max(v,1e-12))]));
+  const x=fit(c),G=geom(c);let xs=[],ys=[];series.forEach(s=>s.forEach(([a,v])=>{xs.push(a);ys.push(v);}));
+  const xr=range(xs,0),yr=range(ys,.06),A=axes(x,G,xr,yr,xlab,ylab,o);A.clip();
+  series.forEach((s,k)=>{x.beginPath();x.strokeStyle=colors[k];x.lineWidth=1.4*dpr();let st=false;
+    s.forEach(([a,v])=>{if(!isFinite(v))return;st?x.lineTo(A.X(a),A.Y(v)):x.moveTo(A.X(a),A.Y(v));st=true;});x.stroke();});
+  x.restore();let ox=G.l+10*dpr();x.font=`${11*dpr()}px ui-monospace,monospace`;x.textBaseline="top";
+  labels.forEach((t,k)=>{x.fillStyle=colors[k];x.fillText("■ "+t,ox,G.t+6*dpr());ox+=x.measureText("■ "+t).width+16*dpr();});x.textBaseline="alphabetic";
+}
+function scatter(c,sets,colors,xr,yr,sz=1.5,xlab,ylab){
+  const x=fit(c),G=geom(c),A=axes(x,G,xr,yr,xlab,ylab);A.clip();
+  sets.forEach((pts,k)=>{x.fillStyle=colors[k];pts.forEach(([a,b])=>x.fillRect(A.X(a)-sz*dpr()/2,A.Y(b)-sz*dpr()/2,sz*dpr(),sz*dpr()));});x.restore();
 }
 function hsv(h,s,v){const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s);
   return [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][((i%6)+6)%6];}
@@ -229,19 +251,27 @@ function run(){
   for(let i=0;i<n;i+=stride){const e=M.en(A[i]);if(H0===null)H0=e[2];
     [0,1,2].forEach(k=>E[k].push([i*h,e[k]]));err=Math.max(err,Math.abs((e[2]-H0)/(H0||1)));
     const [a,b]=M.phase(A[i]);ph1.push([wrap(a[0]),a[1]]);ph2.push([wrap(b[0]),b[1]]);}
-  lines($("en"),E,[css("--a2"),css("--a3"),css("--a1")],["T","V","H"]);
-  const all=ph1.concat(ph2).map(p=>p[1]);
-  scatter($("ph"),[ph1,ph2],[css("--a1"),css("--a2")],[-Math.PI,Math.PI],[Math.min(...all),Math.max(...all)||1]);
-  let R=0;[A,B].forEach(S=>S&&S.forEach((y,i)=>{if(i%20===0)M.pos(y).forEach(p=>R=Math.max(R,Math.hypot(p[0],p[1])));}));R=(R||2)*1.15+.1;
-  const c=$("anim"),x=fit(c),W=c.width,Hc=c.height,sc=Math.min(W,Hc)/2/R,cx=W/2,cy=Hc/2,px=p=>[cx+p[0]*sc,cy-p[1]*sc],t0=performance.now();
+  lines($("en"),E,[css("--a2"),css("--a3"),css("--a1")],["T","V","H"],"t (s)","énergie (J)");
+  $("dcard").classList.toggle("hide",!B);
+  if(B){const D=[],m=Math.min(A.length,B.length);for(let i=0;i<m;i+=stride){const a=M.pos(A[i])[1],b=M.pos(B[i])[1];D.push([i*h,Math.hypot(a[0]-b[0],a[1]-b[1])]);}
+    lines($("dist"),[D],[css("--a2")],["d(t)"],"t (s)","d (m)",{ylog:true});}
+  const pl=M.el?["φ1 (rad)","pφ1 (kg·m²/s)","φ2 (rad)","pφ2 (kg·m²/s)"]:["φ1 (rad)","p1 (kg·m²/s)","φ2 (rad)","p2 (kg·m²/s)"];
+  scatter($("ph"),[ph1],[css("--a1")],range(ph1.map(p=>p[0])),range(ph1.map(p=>p[1])),1.8,pl[0],pl[1]);
+  scatter($("ph2"),[ph2],[css("--a2")],range(ph2.map(p=>p[0])),range(ph2.map(p=>p[1])),1.8,pl[2],pl[3]);
+  // Vue de l'animation : boîte englobante de toute la trajectoire (pivot inclus), échelle identique en x et z
+  let bx0=0,bx1=0,bz0=0,bz1=0;[A,B].forEach(S=>S&&S.forEach((y,i)=>{if(i%10===0)M.pos(y).forEach(p=>{bx0=Math.min(bx0,p[0]);bx1=Math.max(bx1,p[0]);bz0=Math.min(bz0,p[1]);bz1=Math.max(bz1,p[1]);});}));
+  const half=Math.max(bx1-bx0,bz1-bz0,.2)/2*1.12,mx=(bx0+bx1)/2,mz=(bz0+bz1)/2;
+  const c=$("anim"),x=fit(c),G=geom(c,50,34),pw=G.W-G.l-G.r,ph=G.H-G.t-G.b,sc=Math.min(pw,ph)/(2*half);
+  const xr=[mx-pw/2/sc,mx+pw/2/sc],zr=[mz-ph/2/sc,mz+ph/2/sc],gc=document.createElement("canvas");gc.width=c.width;gc.height=c.height;
+  const AX=axes(gc.getContext("2d"),G,xr,zr,"x (m)","z (m)"),px=p=>[AX.X(p[0]),AX.Y(p[1])],t0=performance.now(),Hc=c.height,W=c.width;
   function draw(now){
-    const idx=Math.max(0,Math.min(n-1,Math.floor((now-t0)/1000*num("speed")/h)));x.clearRect(0,0,W,Hc);
+    const idx=Math.max(0,Math.min(n-1,Math.floor((now-t0)/1000*num("speed")/h)));x.clearRect(0,0,W,Hc);x.drawImage(gc,0,0);x.save();x.beginPath();x.rect(G.l,G.t,pw,ph);x.clip();
     [[A,css("--rod"),css("--trace")],[B,css("--rod2"),css("--trace2")]].forEach(([S,c1,c2])=>{if(!S||idx>=S.length)return;
-      x.beginPath();x.strokeStyle=c2;x.globalAlpha=.6;x.lineWidth=1;let first=true;
+      x.beginPath();x.strokeStyle=c2;x.globalAlpha=.6;x.lineWidth=dpr();let first=true;
       for(let i=Math.max(0,idx-2500);i<=idx;i+=2){const q=px(M.pos(S[i])[1]);first?x.moveTo(...q):x.lineTo(...q);first=false;}
       x.stroke();x.globalAlpha=1;const [a,b]=M.pos(S[idx]),o=px([0,0]),pa=px(a),pb=px(b);
-      x.strokeStyle=c1;x.lineWidth=3;x.beginPath();x.moveTo(...o);x.lineTo(...pa);x.lineTo(...pb);x.stroke();
-      x.fillStyle=css("--mass");[pa,pb].forEach(p=>{x.beginPath();x.arc(p[0],p[1],7,0,7);x.fill();});});
+      x.strokeStyle=c1;x.lineWidth=3*dpr();x.beginPath();x.moveTo(...o);x.lineTo(...pa);x.lineTo(...pb);x.stroke();
+      x.fillStyle=css("--mass");[pa,pb].forEach(p=>{x.beginPath();x.arc(p[0],p[1],7*dpr(),0,7);x.fill();});});x.restore();
     let msg=`t = ${(idx*h).toFixed(2)} s · erreur relative max sur H : ${err.toExponential(2)}`;
     if(n<N)msg+=` · ⚠ divergence numérique à t = ${(n*h).toFixed(2)} s`;
     if(B&&idx<B.length){const a=M.pos(A[idx])[1],b=M.pos(B[idx])[1];msg+=` · distance : ${Math.hypot(a[0]-b[0],a[1]-b[1]).toFixed(3)} m`;}
@@ -262,7 +292,7 @@ function poincare(){
     o0=o1;}
   const rg=(k,v)=>k<2?[-Math.PI,Math.PI]:[Math.min(...v)-.1,Math.max(...v)+.1];
   const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-  scatter($("pc"),[pts],[css("--a1")],pts.length?rg(ix,xs):[-1,1],pts.length?rg(iy,ys):[-1,1],1.6);
+  const nm=["θ1 (rad)","θ2 (rad)","ω1 (rad/s)","ω2 (rad/s)"];scatter($("pc"),[pts],[css("--a1")],pts.length?range(xs):[-1,1],pts.length?range(ys):[-1,1],2,nm[ix],nm[iy]);
   $("pi").textContent=pts.length?`${pts.length} points de section sur ${Np} itérations (h = ${h}).`:"Aucun passage : essayez une autre valeur de section ou plus d’énergie.";
 }
 // ===== ONGLET CARTE DE LYAPUNOV (chaos/carte_lyaponov.py)
@@ -332,7 +362,7 @@ function lyapDiv(){
     const tail=hist.slice(Math.floor(hist.length*.8)),lam=tail.reduce((a,p)=>a+p[1],0)/tail.length;
     series.push(hist);labels.push(`${deg}° (λ≈${lam.toFixed(3)})`);
     txt+=`${String(deg).padEnd(9)} | ${lam.toFixed(5).padEnd(12)} | ${(lam>0.01?(1/lam).toFixed(2)+" s":"∞").padEnd(17)} | ${lam>0.1?"CHAOTIQUE":"RÉGULIER"}\n`;});
-  lines($("vc"),series,col,labels);$("vi").textContent=txt;
+  lines($("vc"),series,col,labels,"t (s)","λ (s⁻¹)");$("vi").textContent=txt;
 }
 // ===== NAVIGATION ET ÉVÉNEMENTS
 const tabs=[...document.querySelectorAll(".tab")];
